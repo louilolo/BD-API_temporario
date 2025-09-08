@@ -19,9 +19,9 @@ model Room {
   name               String
   location           String?
   capacity           Int?
-  openremoteAssetId  String?
+  openremoteAssetId  String?  // Adicionado para armazenar o ID do ativo no OpenRemote
   createdAt          DateTime @default(now())
-  events             Event[]
+  events             Event[]  // Relacionamento com eventos
 }
 
 model User {
@@ -45,7 +45,8 @@ model Event {
   endsAt       DateTime
   timezone     String   @default("America/Belem")
   status       String   @default("confirmed")
-  orScheduleId String?
+  orScheduleId String?  // Esse campo foi mantido, presumo que você o use para outros agendamentos
+  openremoteAssetId String?  // Adicionado para armazenar o ID do ativo no OpenRemote
   createdAt    DateTime @default(now())
 
   @@index([roomId, startsAt, endsAt])
