@@ -31,7 +31,6 @@ model User {
   role      String   @default("user")
   events    Event[]  @relation("UserEvents")
   createdAt DateTime @default(now()) @db.Timestamp(3)
-  updatedAt DateTime @updatedAt @db.Timestamp(3)
 }
 
 model Event {
