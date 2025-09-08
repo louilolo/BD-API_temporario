@@ -4,6 +4,8 @@ import cors from 'cors';
 import { roomsRouter } from './routes/rooms.js';
 import { eventsRouter } from './routes/events.js';
 import { dispatcher } from './jobs/dispatcher.js';
+import { usersRouter } from './routes/users.js';
+
 const app = express();
 app.use(cors());                // em prod você pode restringir com: cors({ origin: ['https://seuapp.com'] })
 app.use(express.json());
@@ -11,6 +13,7 @@ app.use(express.json());
 app.get('/health', (_, res) => res.json({ ok: true }));
 app.use('/rooms', roomsRouter);
 app.use('/events', eventsRouter);
+app.use('/users', usersRouter);
 
 dispatcher.start();
 
