@@ -29,8 +29,8 @@ model User {
   email     String   @unique
   name      String?
   role      String   @default("user")
-  createdAt DateTime @default(now())
   events    Event[]  @relation("UserEvents")
+  createdAt DateTime @default(now()) @db.Timestamp(3)
 }
 
 model Event {
