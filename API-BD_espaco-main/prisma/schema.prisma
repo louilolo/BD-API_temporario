@@ -29,6 +29,7 @@ model User {
   email     String   @unique
   name      String?
   role      String   @default("user")
+  status    String
   createdAt DateTime @default(now())
   events    Event[]  @relation("UserEvents")
 }
