@@ -1,13 +1,123 @@
 import { Router } from 'express';
+import { prisma } from '../db.js';
+import { z } from 'zod';
+import { supabase } from '../services/supabase.js';
 
 export const usersRouter = Router();
 
-usersRouter.get('/', (req, res) => {
-  console.log("A rota GET /users foi chamada com sucesso!");
-  res.status(200).json({ message: "Olá! A rota de usuários está funcionando." });
+const createUserSchema = z.object({
+  name: z.string().min(1, 'Informe um nome'),
+  email: z.string().email('Email inválido'),
+  password: z.string().min(6, 'A senha precisa ter no mínimo 6 caracteres'),
+  role: z.string().optional().default('user'),
 });
 
-usersRouter.post('/', (req, res) => res.status(501).json({ error: "Rota desativada para teste."}));
-usersRouter.get('/:id', (req, res) => res.status(501).json({ error: "Rota desativada para teste."}));
-usersRouter.patch('/:id', (req, res) => res.status(501).json({ error: "Rota desativada para teste."}));
-usersRouter.delete('/:id', (req, res) => res.status(501).json({ error: "Rota desativada para teste."}));
+const updateUserSchema = z.object({
+  name: z.string().min(1).optional(),
+  role: z.string().optional(),
+});
+
+usersRouter.post('/', async (req, res) => {
+  const parsed = createUserSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.flatten() });
+  }
+  const { name, email, password, role } = parsed.data;
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: { data: { name, role } },
+  });
+
+  if (error) {
+    if (error.message.includes('User already registered')) {
+      return res.status(409).json({ error: 'Email já cadastrado.' });
+    }
+    console.error(error);
+    return res.status(500).json({ error: error.message });
+  }
+
+  return res.status(201).json(data.user);
+});
+
+usersRouter.get('/', async (_req, res) => {
+  try {
+    const users = await prisma.user.findMany({
+      orderBy: { createdAt: 'asc' },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        createdAt: true,
+      }
+    });
+    res.json(users);
+  } catch(e) {
+    console.error("Erro ao buscar usuários na API:", e);
+    res.status(500).json({ error: "Erro interno ao buscar usuários." });
+  }
+});
+
+usersRouter.get('/:id', async (req, res) => {
+  const { id } = req.params;
+  const user = await prisma.user.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true,
+      createdAt: true,
+    }
+  });
+
+  if (!user) {
+    return res.status(404).json({ error: 'Usuário não encontrado.' });
+  }
+  res.json(user);
+});
+
+usersRouter.patch('/:id', async (req, res) => {
+  const { id } = req.params;
+  const parsed = updateUserSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.flatten() });
+  }
+
+  try {
+    const updatedUser = await prisma.user.update({
+      where: { id },
+      data: parsed.data,
+    });
+    res.json(updatedUser);
+  } catch (e) {
+    if (typeof e === 'object' && e !== null && 'code' in e) {
+      const error = e as { code?: string };
+      if (error.code === 'P2025') {
+        return res.status(404).json({ error: 'Usuário não encontrado.' });
+      }
+    }
+    console.error('Erro inesperado:', e);
+    return res.status(500).json({ error: 'Erro ao atualizar usuário.' });
+  }
+});
+
+usersRouter.delete('/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    await prisma.user.delete({
+      where: { id },
+    });
+    res.status(204).send();
+  } catch (e) {
+    if (typeof e === 'object' && e !== null && 'code' in e) {
+      const error = e as { code?: string };
+      if (error.code === 'P2025') {
+        return res.status(404).json({ error: 'Usuário não encontrado.' });
+      }
+    }
+    console.error('Erro inesperado:', e);
+    return res.status(500).json({ error: 'Erro ao deletar usuário.' });
+  }
+});
