@@ -1,7 +1,17 @@
 import { Router } from 'express';
 import { prisma } from '../db.js';
 import { z } from 'zod';
-import { supabase } from '../services/supabase.js';
+import { createClient } from '@supabase/supabase-js';
+import 'dotenv/config';
+
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_KEY;
+
+if (!supabaseUrl || !supabaseKey) {
+  throw new Error('Supabase URL and Anon Key must be provided in .env file');
+}
+
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 export const usersRouter = Router();
 
@@ -9,7 +19,6 @@ const createUserSchema = z.object({
   name: z.string().min(1, 'Informe um nome'),
   email: z.string().email('Email inválido'),
   password: z.string().min(6, 'A senha precisa ter no mínimo 6 caracteres'),
-  role: z.string().optional().default('user'),
 });
 
 const updateUserSchema = z.object({
@@ -22,11 +31,11 @@ usersRouter.post('/', async (req, res) => {
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.flatten() });
   }
-  const { name, email, password, role } = parsed.data;
+  const { name, email, password } = parsed.data;
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
-    options: { data: { name, role } },
+    options: { data: { name } },
   });
 
   if (error) {
@@ -37,26 +46,24 @@ usersRouter.post('/', async (req, res) => {
     return res.status(500).json({ error: error.message });
   }
 
-  return res.status(201).json(data.user);
+  return res.status(201).json({
+    message: 'Usuário criado! Verifique seu e-mail para confirmação.',
+    user: data.user
+  });
 });
 
 usersRouter.get('/', async (_req, res) => {
-  try {
-    const users = await prisma.user.findMany({
-      orderBy: { createdAt: 'asc' },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        createdAt: true,
-      }
-    });
-    res.json(users);
-  } catch(e) {
-    console.error("Erro ao buscar usuários na API:", e);
-    res.status(500).json({ error: "Erro interno ao buscar usuários." });
-  }
+  const users = await prisma.user.findMany({
+    orderBy: { createdAt: 'asc' },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true,
+      createdAt: true,
+    }
+  });
+  res.json(users);
 });
 
 usersRouter.get('/:id', async (req, res) => {
@@ -75,6 +82,7 @@ usersRouter.get('/:id', async (req, res) => {
   if (!user) {
     return res.status(404).json({ error: 'Usuário não encontrado.' });
   }
+
   res.json(user);
 });
 
